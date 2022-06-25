@@ -7,22 +7,20 @@ use tui::{
     Frame,
     Terminal
 };
-use crate::{Character, State};
+use crate::{character::Character, State};
 
 pub fn draw<B: Backend>(
     term: &mut Terminal<B>,
-    player: &Character,
     state: &State, 
 ) -> Result<(), Box<dyn std::error::Error>> {
     term.draw(|rect| {
-        term_ui(rect, player, state);
+        term_ui(rect, state);
     })?;
     Ok(())
 }
 
 fn term_ui<B: Backend>(
     rect: &mut Frame<B>,
-    player: &Character,
     state: &State, 
 ) {
     let mut size = rect.size();
@@ -33,12 +31,12 @@ fn term_ui<B: Backend>(
         // * La direccion en la que se va a separar el espacio
         .direction(Direction::Vertical)
         //* Separacion entre separaciones
-        .margin(2)
+        .margin(1)
         //* Las restricciones de cada separacion
         .constraints([
-                Constraint::Percentage(20),
-                Constraint::Min(4),
-                Constraint::Percentage(20)
+                Constraint::Length(6),
+                Constraint::Min(6),
+                Constraint::Length(6)
             ].as_ref()
         )
         //* Separar segun el tamaño del terminal
@@ -63,21 +61,19 @@ fn term_ui<B: Backend>(
         .title("Personajes")
         .borders(Borders::all());
     rect.render_widget(blocko, chunks[2]);
-    build_characters_section(rect, player, state, &chunks[2]);
+    build_characters_section(rect, state, &chunks[2]);
 }
 
 fn build_characters_section<B: Backend>(
     rect: &mut Frame<B>,
-    player: &Character,
     state: &State,
     chunk: &Rect
 ) {
-
     let mut constraints: Vec<Constraint> = vec![];
-    if state.player_party > 1 {
-        for _ in 0..state.player_party {
+    if state.player_party.len() > 1 {
+        for _ in state.player_party.iter() {
             constraints.append(
-                vec![Constraint::Percentage((100/state.player_party) as u16)]
+                vec![Constraint::Percentage((100/state.player_party.len()) as u16)]
                 .as_mut()
             );
         }
@@ -87,20 +83,14 @@ fn build_characters_section<B: Backend>(
         );
     }
 
-    
     let mut party_chunks = Layout::default()
     .direction(Direction::Horizontal)
     .horizontal_margin(1)
     .constraints(constraints)
     .split(*chunk);
-    
-    let mut players_chunks = {
-        for p_idx in 0..state.player_party {
-            
-        }
-    };
 
-    for c_chunk in party_chunks {
+    for (i, c_chunk) in party_chunks.iter().enumerate() {
+        let player = &state.player_party[i];
         let player_chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
@@ -110,7 +100,7 @@ fn build_characters_section<B: Backend>(
                     Constraint::Percentage(25),
                     Constraint::Percentage(25),
                 ].as_ref()
-            ).split(c_chunk);
+            ).split(*c_chunk);
         
         let gauge = Gauge::default()
             .block(Block::default().borders(Borders::LEFT | Borders::RIGHT))
@@ -119,10 +109,11 @@ fn build_characters_section<B: Backend>(
                     .fg(Color::Green)
                     .add_modifier(Modifier::SLOW_BLINK)
             )
-            .percent(player.time.round() as u16)
+            .percent((player.time/60.0*100.0).round() as u16)
             .label("Time")
             .use_unicode(true);
         rect.render_widget(gauge, player_chunks[0]);
+
         let p_name = Paragraph::new(player.name.clone())
             .style(Style::default())
             .block(Block::default().borders(Borders::LEFT | Borders::RIGHT))
@@ -136,7 +127,9 @@ fn build_characters_section<B: Backend>(
                     .fg(Color::Red)
                     .add_modifier(Modifier::BOLD)
             )
-            .percent(((145.0f32/180.0f32)*100.0f32).round() as u16)
+            .percent((
+                    (player.health as f32*100.0/player.max_health as f32)
+                ).round() as u16)
             .label("Health");
         rect.render_widget(gauge, player_chunks[2]);
 
@@ -144,10 +137,12 @@ fn build_characters_section<B: Backend>(
             .block(Block::default().borders(Borders::LEFT | Borders::RIGHT))
             .gauge_style(
                 Style::default()
-                    .fg(Color::Blue)
+                    .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD)
             )
-            .percent(((120.0f32/180.0f32)*100.0f32).round() as u16)
+            .percent((
+                    (player.mana as f32*100.0/player.max_mana as f32)
+                ).round() as u16)
             .label("Mana");
         rect.render_widget(gauge, player_chunks[3]);
     }
