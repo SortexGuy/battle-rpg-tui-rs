@@ -1,52 +1,19 @@
-use std::{
-    io, sync::mpsc, thread, 
-    time::{Duration, Instant}
-};
+mod ui_rendering;
+mod characters;
+
 use crossterm::{
     event::{self, Event as CEvent, KeyCode},
-    terminal::{
-        disable_raw_mode, 
-        enable_raw_mode, 
-        LeaveAlternateScreen, 
-        EnterAlternateScreen, 
-    }, 
-    execute, 
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use tui::{
-    backend::{CrosstermBackend}, 
-    Terminal, 
+use std::{
+    io,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
 };
-
-mod ui_rendering;
-
-mod character {
-    #[derive(Debug, Default, Clone)]
-    pub struct Stats {
-        pub attack: u16,
-        pub defense: u16,
-        pub hope: u16,
-    }
-
-    #[derive(Debug, Default, Clone)]
-    pub struct Character {
-        pub name: String,
-        pub stats: Stats,
-        pub health: u16,
-        pub max_health: u16,
-        pub mana: u16,
-        pub max_mana: u16,
-        pub time: f32,
-        pub time_mod: f32,
-    }
-    impl Character {
-        pub fn update(&mut self, delta: f32) {
-            let mut time = self.time + delta*self.time_mod;
-            if time > 60.0 { time = 60.0; }
-            self.time = time;
-        }
-    }
-}
-use character::*;
+use tui::{backend::CrosstermBackend, Terminal};
+use characters::*;
 
 enum Event<I> {
     Input(I),
@@ -55,14 +22,13 @@ enum Event<I> {
 
 pub struct State {
     /// Max 4
-    enemy_party: u8,
+    enemy_party: Vec<Character>,
     /// Max 4
     player_party: Vec<Character>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode().expect("can run in raw mode");
-
 
     //* Event loop
     let (tx, rx) = mpsc::channel();
@@ -87,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     });
-    
+
     //* Setup terminal output
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
@@ -95,36 +61,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
-
     //* Setup game
-    let mut player = Character {
-        name: "Jugador".to_string(),
-        stats: Stats { attack: 5, defense: 4, hope: 3 },
-        health: 78,
-        max_health: 100,
-        mana: 45,
-        max_mana: 100,
-        time_mod: 3.0,
-        ..Default::default()
-    };
     let mut state = State {
-        enemy_party: 4,
-        player_party: vec![player],
+        enemy_party: vec![
+            Character {
+                name: "Enemigo".to_string(),
+                stats: Stats { attack: 5, defense: 5,hope: 2, },
+                health: 23, max_health: 100,
+                mana: 82, max_mana: 100,
+                time_mod: 2.0, ..Default::default()
+            },
+            Character {
+                name: "Enemigo2".to_string(),
+                stats: Stats { attack: 5, defense: 5,hope: 2, },
+                health: 23, max_health: 100,
+                mana: 82, max_mana: 100,
+                time_mod: 2.0, ..Default::default()
+            },
+            Character {
+                name: "Enemigo3".to_string(),
+                stats: Stats { attack: 5, defense: 5,hope: 2, },
+                health: 23, max_health: 100,
+                mana: 82, max_mana: 100,
+                time_mod: 2.0, ..Default::default()
+            },
+        ],
+        player_party: vec![
+            Character {
+                name: "Personaje".to_string(),
+                stats: Stats { attack: 5, defense: 4, hope: 3, },
+                health: 78, max_health: 100,
+                mana: 45, max_mana: 100,
+                time_mod: 3.0, ..Default::default()
+            }
+        ],
     };
-    
+
     let mut delta = 0.0;
     let cerrar = false;
     //* Main loop
     while !cerrar {
         let time = Instant::now();
 
-        for p in state.player_party.iter_mut() {
-            p.update(delta);
-        }
+        update_chars_time(&mut state, delta);
 
         //* Render job
         ui_rendering::draw(&mut terminal, &state)?;
-        
+
         //* Event handler
         match rx.recv()? {
             Event::Input(event) => match event.code {
@@ -135,27 +118,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
                     break;
                 }
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::Char('w') => {
                     if !(state.player_party.len() >= 4) {
-                        state.player_party.append(vec![
-                            state.player_party[0].clone()
-                        ].as_mut()
-                        );
-                    }
-                    else {
+                        state
+                            .player_party
+                            .append(vec![state.player_party[0].clone()].as_mut());
+                    } else {
                         state.player_party.pop();
                         state.player_party.pop();
                         state.player_party.pop();
                     }
                 }
-                KeyCode::Down => {
-                    if !(state.player_party.len() <= 1) { state.player_party.pop(); }
-                    else {
-                        state.player_party.append(vec![
-                            state.player_party[0].clone(),
-                            state.player_party[0].clone(),
-                            state.player_party[0].clone(),
-                            ].as_mut()
+                KeyCode::Down | KeyCode::Char('s') => {
+                    if !(state.player_party.len() <= 1) {
+                        state.player_party.pop();
+                    } else {
+                        state.player_party.append(
+                            vec![
+                                state.player_party[0].clone(),
+                                state.player_party[0].clone(),
+                                state.player_party[0].clone(),
+                            ]
+                            .as_mut(),
                         );
                     }
                 }
