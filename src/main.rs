@@ -1,6 +1,7 @@
-mod ui_rendering;
 mod characters;
+mod ui_rendering;
 
+use characters::*;
 use crossterm::{
     event::{self, Event as CEvent, KeyCode},
     execute,
@@ -13,7 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tui::{backend::CrosstermBackend, Terminal};
-use characters::*;
+use ui_rendering::{ActionOptions, UiState};
 
 enum Event<I> {
     Input(I),
@@ -25,6 +26,7 @@ pub struct State {
     enemy_party: Vec<Character>,
     /// Max 4
     player_party: Vec<Character>,
+    ui: UiState,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -66,36 +68,74 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         enemy_party: vec![
             Character {
                 name: "Enemigo".to_string(),
-                stats: Stats { attack: 5, defense: 5,hope: 2, },
-                health: 23, max_health: 100,
-                mana: 82, max_mana: 100,
-                time_mod: 2.0, ..Default::default()
+                stats: Stats {
+                    attack: 5,
+                    defense: 5,
+                    hope: 2,
+                },
+                health: 23,
+                max_health: 100,
+                mana: 82,
+                max_mana: 100,
+                ..Default::default()
             },
             Character {
                 name: "Enemigo2".to_string(),
-                stats: Stats { attack: 5, defense: 5,hope: 2, },
-                health: 23, max_health: 100,
-                mana: 82, max_mana: 100,
-                time_mod: 2.0, ..Default::default()
+                stats: Stats {
+                    attack: 5,
+                    defense: 5,
+                    hope: 2,
+                },
+                health: 23,
+                max_health: 100,
+                mana: 82,
+                max_mana: 100,
+                ..Default::default()
             },
             Character {
                 name: "Enemigo3".to_string(),
-                stats: Stats { attack: 5, defense: 5,hope: 2, },
-                health: 23, max_health: 100,
-                mana: 82, max_mana: 100,
-                time_mod: 2.0, ..Default::default()
+                stats: Stats {
+                    attack: 5,
+                    defense: 5,
+                    hope: 2,
+                },
+                health: 23,
+                max_health: 100,
+                mana: 82,
+                max_mana: 100,
+                ..Default::default()
             },
         ],
-        player_party: vec![
-            Character {
-                name: "Personaje".to_string(),
-                stats: Stats { attack: 5, defense: 4, hope: 3, },
-                health: 78, max_health: 100,
-                mana: 45, max_mana: 100,
-                time_mod: 3.0, ..Default::default()
-            }
-        ],
+        player_party: vec![Character {
+            name: "Personaje".to_string(),
+            stats: Stats {
+                attack: 5,
+                defense: 4,
+                hope: 3,
+            },
+            health: 78,
+            max_health: 100,
+            mana: 45,
+            max_mana: 100,
+            ..Default::default()
+        }],
+        ui: UiState {
+            from: (0, false),
+            what: (0, false),
+            which: (0, false),
+            to: 0,
+        },
     };
+
+    //? For demostration proposes
+    state.player_party.append(
+        vec![
+            state.player_party[0].clone(),
+            state.player_party[0].clone(),
+            state.player_party[0].clone(),
+        ]
+        .as_mut(),
+    );
 
     let mut delta = 0.0;
     let cerrar = false;
@@ -118,30 +158,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
                     break;
                 }
-                KeyCode::Up | KeyCode::Char('w') => {
-                    if !(state.player_party.len() >= 4) {
-                        state
-                            .player_party
-                            .append(vec![state.player_party[0].clone()].as_mut());
-                    } else {
-                        state.player_party.pop();
-                        state.player_party.pop();
-                        state.player_party.pop();
+                KeyCode::Char('e') => {
+                    for player in state.player_party.iter_mut() {
+                        if player.act_available.contains(&ActionOptions::Magic) {
+                            player.add_action(&ActionOptions::Manif);
+                        } else {
+                            player.add_action(&ActionOptions::Magic);
+                        }
                     }
                 }
+                KeyCode::Up | KeyCode::Char('w') => {
+                    up_interaction(&mut state);
+                }
                 KeyCode::Down | KeyCode::Char('s') => {
-                    if !(state.player_party.len() <= 1) {
-                        state.player_party.pop();
-                    } else {
-                        state.player_party.append(
-                            vec![
-                                state.player_party[0].clone(),
-                                state.player_party[0].clone(),
-                                state.player_party[0].clone(),
-                            ]
-                            .as_mut(),
-                        );
-                    }
+                    down_interaction(&mut state);
+                }
+                KeyCode::Left | KeyCode::Char('a') => {
+                }
+                KeyCode::Right | KeyCode::Char('d') => {
+                }
+                KeyCode::Enter | KeyCode::Char(' ') => {
+                    let ui_state = &mut state.ui;
+                    ui_state.select();
                 }
                 _ => {}
             },
@@ -151,4 +189,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         delta = time.elapsed().as_secs_f32();
     }
     Ok(())
+}
+
+fn up_interaction(state: &mut State) {
+    let ui_state = &mut state.ui;
+    ui_state.prev();
+}
+
+fn down_interaction(state: &mut State) {
+    let ui_state = &mut state.ui;
+    ui_state.next(
+        state.player_party.len(), 
+        state.player_party[ui_state.from.0].act_available.len(), 
+        state.enemy_party.len(), 
+    );
 }
