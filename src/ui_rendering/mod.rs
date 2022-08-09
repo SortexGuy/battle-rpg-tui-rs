@@ -1,59 +1,129 @@
-use crate::{characters::Character, State};
+use crate::{characters::Character, BattleState};
 use tui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::*,
-    text::Spans,
+    text::Span,
     widgets::*,
     Frame, Terminal,
 };
 use core::option::{Option::Some, Option::None};
+use std::fmt::{self, Display};
 
 pub struct UiState {
-    pub from: (usize, bool),
-    pub what: (usize, bool),
-    pub which: (usize, bool),
-    pub to: usize,
+    pub enemy_party: Option<Vec<Character>>, 
+    pub player_party: Option<Vec<Character>>, 
+
+    pub from: StatefulList,
+    pub what: StatefulList,
+    pub which: StatefulList,
+    pub to: StatefulList,
 }
 impl UiState {
+    pub fn populate(&mut self, b_state: &BattleState) {
+        if !b_state.enemy_party.is_empty() {
+            self.enemy_party = Some(b_state.enemy_party.clone());
+        } else { self.enemy_party = None; }
+        if !b_state.player_party.is_empty() {
+            self.player_party = Some(b_state.player_party.clone());
+        } else { self.player_party = None; }
+        self.from.change_items(&b_state.player_party);
+        if let Some(i) = self.from.state.selected() {
+            self.what.change_items(&b_state.player_party[i].act_available);
+        }
+        self.which.change_items(&["Asies"]);
+        self.to.change_items(&b_state.enemy_party);
+    }
+    fn unselect_all(&mut self) {
+        self.from.unselect();
+        self.what.unselect();
+        self.which.unselect();
+        self.to.unselect();
+    }
     pub fn prev(&mut self) {
-        if !self.from.1 {
-            if self.from.0 > 0 { self.from.0 -= 1; }
-        }
-        else if !self.what.1 {
-            if self.what.0 > 0 { self.what.0 -= 1; }
-        }
-        else if !self.which.1 {
-            return ;
-            // if self.which.0 > 0 { self.which.0 -= 1; }
+        if !self.from.blocked {
+            self.from.prev();
+        } else if !self.what.blocked {
+            self.what.prev();
+        } else if !self.which.blocked {
+            self.which.prev();
         } else {
-            if self.to > 0 { self.to -= 1; }
+            self.to.prev();
         }
     }
-    pub fn next(&mut self, p_len: usize, act_len: usize, e_len: usize) {
-        if !self.from.1 {
-            if self.from.0 < p_len-1 { self.from.0 += 1; }
-        }
-        else if !self.what.1 {
-            if self.what.0 < act_len-1 { self.what.0 += 1; }
-        }
-        else if !self.which.1 {
-            return ;
-            // if self.which.0 < 1 { self.which.0 += 1; }
+    pub fn next(&mut self) {
+        if !self.from.blocked {
+            self.from.next();
+        } else if !self.what.blocked {
+            self.what.next();
+        } else if !self.which.blocked {
+            self.which.next();
         } else {
-            if self.to < e_len-1 { self.to += 1; }
+            self.to.next();
         }
     }
     pub fn select(&mut self) {
-        if !self.from.1 { self.from.1 = true; }
-        else if !self.what.1 { self.what.1 = true; }
-        else if !self.which.1 { self.which.1 = true; }
-        else { 
-            self.from.1 = false;
-            self.what.1 = false;
-            self.which.1 = false;
+        if !self.from.blocked { self.from.select(); }
+        else if !self.what.blocked { self.what.select(); }
+        else if !self.which.blocked { self.which.select(); }
+        else if !self.to.blocked { 
+            self.unselect_all()
             // TODO: Push action to the queue
         }
+    }
+    pub fn unselect(&mut self) {
+        if self.which.blocked { self.which.unselect(); }
+        else if self.what.blocked { self.what.unselect(); }
+        else if self.from.blocked { self.from.unselect(); }
+    }
+}
+
+pub struct StatefulList {
+    blocked: bool, 
+    title: String, 
+    state: ListState, 
+    items: Vec<String>, 
+}
+impl StatefulList {
+    pub fn with_items(items: Vec<String>, title: &str) -> StatefulList {
+        StatefulList { 
+            title: title.to_string(), 
+            blocked: false, 
+            state: ListState::default(), 
+            items, 
+        }
+    }
+    pub fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 { 0 } 
+                else { i + 1 }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+    pub fn prev(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 { self.items.len() - 1 } 
+                else { i - 1 }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+    pub fn select(&mut self) {
+        self.blocked = true;
+    }
+    pub fn unselect(&mut self) {
+        self.blocked = false;
+        self.state.select(None);
+    }
+    pub fn change_items<C: Display + Clone>(&mut self, items: &[C]) {
+        self.items = items.iter()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>();
     }
 }
 
@@ -65,10 +135,15 @@ pub enum ActionOptions {
     Ability,
     Manif,
 }
+impl Display for ActionOptions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
 pub fn draw<B: Backend>(
     term: &mut Terminal<B>,
-    state: &State,
+    state: &mut UiState,
 ) -> Result<(), Box<dyn std::error::Error>> {
     term.draw(|rect| {
         term_ui(rect, state);
@@ -76,7 +151,7 @@ pub fn draw<B: Backend>(
     Ok(())
 }
 
-fn term_ui<B: Backend>(rect: &mut Frame<B>, state: &State) {
+fn term_ui<B: Backend>(rect: &mut Frame<B>, state: &mut UiState) {
     let mut size = rect.size();
     if size.height % 2 != 0 {
         size.height -= 1;
@@ -104,31 +179,32 @@ fn term_ui<B: Backend>(rect: &mut Frame<B>, state: &State) {
     //* Making enemies panel
     let blocko = Block::default().title("Enemigos").borders(Borders::all());
     rect.render_widget(blocko, chunks[0]);
-    build_enemies_section(rect, state, &chunks[0]);
+    if let Some(party) = &state.enemy_party {
+        build_enemies_section(rect, party, &chunks[0]);
+    }
 
-    // TODO: make middle panel
+    //* Making middle panels
     build_middle_panels(rect, state, &chunks[1]);
-
+    
     //* Making player characters panel
     let blocko = Block::default().title("Personajes").borders(Borders::all());
     rect.render_widget(blocko, chunks[2]);
-    build_characters_section(rect, state, &chunks[2]);
+    if let Some(party) = &state.player_party {
+        build_characters_section(rect, party, &chunks[2]);
+    }
 }
 
-fn build_enemies_section<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
-    let mut constraints: Vec<Constraint> = vec![];
-    if state.enemy_party.len() > 1 {
-        for _ in state.enemy_party.iter() {
-            constraints.append(
-                vec![Constraint::Percentage(
-                    (100 / state.enemy_party.len()) as u16,
-                )]
-                .as_mut(),
-            );
-        }
-    } else {
-        constraints.append(vec![Constraint::Percentage(100u16)].as_mut());
-    }
+fn build_enemies_section<B: Backend>(
+    rect: &mut Frame<B>, 
+    party: &Vec<Character>, 
+    chunk: &Rect, 
+) {
+    let constraints = {
+        let p_len = party.len();
+        vec![
+            Constraint::Percentage((100 / p_len) as u16); p_len
+        ]
+    };
 
     let party_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -137,8 +213,8 @@ fn build_enemies_section<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: 
         .split(*chunk);
 
     for (i, e_chunk) in party_chunks.iter().enumerate() {
-        let enemy = &state.enemy_party[i];
-        let player_chunks = Layout::default()
+        let enemy = &party[i];
+        let char_chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
             .constraints( [
@@ -159,7 +235,7 @@ fn build_enemies_section<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: 
             Option::Some(Modifier::BOLD),
             true
         );
-        rect.render_widget(gauge, player_chunks[0]);
+        rect.render_widget(gauge, char_chunks[0]);
 
         let gauge = create_gauge(
             enemy.health as f32, 
@@ -169,13 +245,13 @@ fn build_enemies_section<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: 
             Option::Some(Modifier::BOLD),
             true
         );
-        rect.render_widget(gauge, player_chunks[1]);
+        rect.render_widget(gauge, char_chunks[1]);
 
         let p_name = Paragraph::new(enemy.name.clone())
             .style(Style::default())
             .block(Block::default().borders(Borders::LEFT | Borders::RIGHT))
             .alignment(Alignment::Center);
-        rect.render_widget(p_name, player_chunks[2]);
+        rect.render_widget(p_name, char_chunks[2]);
 
         // let time = (enemy.time / 60.0 * 100.0).round() as u16;
         let gauge = create_gauge(
@@ -186,11 +262,11 @@ fn build_enemies_section<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: 
             Option::Some(Modifier::SLOW_BLINK),
             true
         );
-        rect.render_widget(gauge, player_chunks[3]);
+        rect.render_widget(gauge, char_chunks[3]);
     }
 }
 
-fn build_middle_panels<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
+fn build_middle_panels<B: Backend>(rect: &mut Frame<B>, state: &mut UiState, chunk: &Rect) {
     let middle_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .horizontal_margin(0)
@@ -205,113 +281,105 @@ fn build_middle_panels<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &R
         )
         .split(*chunk);
     // Character
-    render_players_list(rect, state, &middle_chunks[0]);
+    render_statefull_list(rect, &mut state.from, &middle_chunks[0]);
     // Action list
-    render_action_list(rect, state, &middle_chunks[1]);
+    render_statefull_list(rect, &mut state.what, &middle_chunks[1]);
     // Which action list
-    render_which_list(rect, state, &middle_chunks[2]);
+    render_statefull_list(rect, &mut state.which, &middle_chunks[2]);
     // To who list
-    render_to_list(rect, state, &middle_chunks[3]);
+    render_statefull_list(rect, &mut state.to, &middle_chunks[3]);
 }
 
-fn render_players_list<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
-    let list: List;
-    let mut menu_opt: Vec<ListItem> = vec![ListItem::new(""); state.player_party.len() as usize];
-    for (i, chara) in state.player_party.iter().enumerate() {
-        menu_opt[i] = ListItem::new(format!("{}", chara.name));
-    }
-    list = List::new(menu_opt)
-        .block(Block::default().title("Quien?")
+fn render_statefull_list<B: Backend>(rect: &mut Frame<B>, s_list: &mut StatefulList, chunk: &Rect) {
+    let list = List::new(
+        s_list.items.iter().map(|s| {
+            ListItem::new(s.clone())
+        }).collect::<Vec<ListItem>>()
+    )
+        .block(Block::default().title(s_list.title.clone())
         .borders(Borders::all()))
         .highlight_style(
             Style::default().add_modifier(Modifier::BOLD | Modifier::ITALIC)
         )
         .highlight_symbol(">>");
-    let mut l_state = ListState::default();
-    l_state.select(
-        Some(state.ui.from.0)
-    );
-    rect.render_stateful_widget(list, *chunk, &mut l_state);
+    rect.render_stateful_widget(list, *chunk, &mut s_list.state);
 }
 
-fn render_action_list<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
-    let act_available = &state.player_party[state.ui.from.0].act_available;
-    let list: List;
-    let mut menu_opt: Vec<ListItem> = vec![ListItem::new(""); act_available.len()];
-    for (i, act) in act_available.iter().enumerate() {
-        menu_opt[i] = ListItem::new(format!("{:?}", act));
-    }
-    list = List::new(menu_opt)
-        .block(Block::default().title("Que?")
-        .borders(Borders::all()))
-        .highlight_style(
-            Style::default().add_modifier(Modifier::BOLD | Modifier::ITALIC)
-        )
-        .highlight_symbol(">>");
-    let mut l_state = ListState::default();
-    l_state.select(
-        Some(state.ui.what.0)
-    );
-    rect.render_stateful_widget(list, *chunk, &mut l_state);
-}
+// fn render_action_list<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
+//     let act_available = &state.player_party[state.ui.from.0].act_available;
+//     let list: List;
+//     let mut menu_opt: Vec<ListItem> = vec![ListItem::new(""); act_available.len()];
+//     for (i, act) in act_available.iter().enumerate() {
+//         menu_opt[i] = ListItem::new(format!("{:?}", act));
+//     }
+//     list = List::new(menu_opt)
+//         .block(Block::default().title("Que?")
+//         .borders(Borders::all()))
+//         .highlight_style(
+//             Style::default().add_modifier(Modifier::BOLD | Modifier::ITALIC)
+//         )
+//         .highlight_symbol(">>");
+//     let mut l_state = ListState::default();
+//     l_state.select(
+//         Some(state.ui.what.0)
+//     );
+//     rect.render_stateful_widget(list, *chunk, &mut l_state);
+// }
 
-fn render_which_list<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
-    // let act_available = &state.player_party[state.ui.from.0].act_available;
-    // let j = state.player_party[state.ui.from.0].act_available[state.ui.what.0] as usize;
-    // state.player_party[state.ui.from.0].act_opt[j]
-    let list: List;
-    let menu_opt: Vec<ListItem> = vec![ListItem::new("Asies")];
-    // for (i, act) in act_available.iter().enumerate() {
-    //     menu_opt[i] = ListItem::new(format!("{:?}", act));
-    // }
-    list = List::new(menu_opt)
-        .block(Block::default().title("Cual?")
-        .borders(Borders::all()))
-        .highlight_style(
-            Style::default().add_modifier(Modifier::BOLD | Modifier::ITALIC)
-        )
-        .highlight_symbol(">>");
-    let mut l_state = ListState::default();
-    l_state.select(
-        Some(state.ui.which.0)
-    );
-    rect.render_stateful_widget(list, *chunk, &mut l_state);
-}
+// fn render_which_list<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
+//     // let act_available = &state.player_party[state.ui.from.0].act_available;
+//     // let j = state.player_party[state.ui.from.0].act_available[state.ui.what.0] as usize;
+//     // state.player_party[state.ui.from.0].act_opt[j]
+//     let list: List;
+//     let menu_opt: Vec<ListItem> = vec![ListItem::new("Asies")];
+//     // for (i, act) in act_available.iter().enumerate() {
+//     //     menu_opt[i] = ListItem::new(format!("{:?}", act));
+//     // }
+//     list = List::new(menu_opt)
+//         .block(Block::default().title("Cual?")
+//         .borders(Borders::all()))
+//         .highlight_style(
+//             Style::default().add_modifier(Modifier::BOLD | Modifier::ITALIC)
+//         )
+//         .highlight_symbol(">>");
+//     let mut l_state = ListState::default();
+//     l_state.select(
+//         Some(state.ui.which.0)
+//     );
+//     rect.render_stateful_widget(list, *chunk, &mut l_state);
+// }
 
-fn render_to_list<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
-    let list: List;
-    let mut menu_opt: Vec<ListItem> = vec![ListItem::new(""); state.enemy_party.len() as usize];
-    for (i, chara) in state.enemy_party.iter().enumerate() {
-        menu_opt[i] = ListItem::new(format!("{}", chara.name));
-    }
-    list = List::new(menu_opt)
-        .block(Block::default().title("A quien?")
-        .borders(Borders::all()))
-        .highlight_style(
-            Style::default().add_modifier(Modifier::BOLD | Modifier::ITALIC)
-        )
-        .highlight_symbol(">>");
-    let mut l_state = ListState::default();
-    l_state.select(
-        Some(state.ui.to)
-    );
-    rect.render_stateful_widget(list, *chunk, &mut l_state);
-}
+// fn render_to_list<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
+//     let list: List;
+//     let mut menu_opt: Vec<ListItem> = vec![ListItem::new(""); state.enemy_party.len() as usize];
+//     for (i, chara) in state.enemy_party.iter().enumerate() {
+//         menu_opt[i] = ListItem::new(format!("{}", chara.name));
+//     }
+//     list = List::new(menu_opt)
+//         .block(Block::default().title("A quien?")
+//         .borders(Borders::all()))
+//         .highlight_style(
+//             Style::default().add_modifier(Modifier::BOLD | Modifier::ITALIC)
+//         )
+//         .highlight_symbol(">>");
+//     let mut l_state = ListState::default();
+//     l_state.select(
+//         Some(state.ui.to)
+//     );
+//     rect.render_stateful_widget(list, *chunk, &mut l_state);
+// }
 
-fn build_characters_section<B: Backend>(rect: &mut Frame<B>, state: &State, chunk: &Rect) {
-    let mut constraints: Vec<Constraint> = vec![];
-    if state.player_party.len() > 1 {
-        for _ in state.player_party.iter() {
-            constraints.append(
-                vec![Constraint::Percentage(
-                    (100 / state.player_party.len()) as u16,
-                )]
-                .as_mut(),
-            );
-        }
-    } else {
-        constraints.append(vec![Constraint::Percentage(100u16)].as_mut());
-    }
+fn build_characters_section<B: Backend>(
+    rect: &mut Frame<B>, 
+    party: &Vec<Character>, 
+    chunk: &Rect, 
+) {
+    let constraints = {
+        let p_len = party.len();
+        vec![
+            Constraint::Percentage((100 / p_len) as u16); p_len
+        ]
+    };
 
     let party_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -320,8 +388,8 @@ fn build_characters_section<B: Backend>(rect: &mut Frame<B>, state: &State, chun
         .split(*chunk);
 
     for (i, c_chunk) in party_chunks.iter().enumerate() {
-        let player = &state.player_party[i];
-        let player_chunks = Layout::default()
+        let player = &party[i];
+        let char_chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
             .constraints( [
@@ -342,13 +410,13 @@ fn build_characters_section<B: Backend>(rect: &mut Frame<B>, state: &State, chun
             Option::Some(Modifier::SLOW_BLINK),
             false
         );
-        rect.render_widget(gauge, player_chunks[0]);
+        rect.render_widget(gauge, char_chunks[0]);
 
         let p_name = Paragraph::new(player.name.clone())
             .style(Style::default())
             .block(Block::default().borders(Borders::LEFT | Borders::RIGHT))
             .alignment(Alignment::Center);
-        rect.render_widget(p_name, player_chunks[1]);
+        rect.render_widget(p_name, char_chunks[1]);
 
         let gauge = create_gauge(
             player.health as f32, 
@@ -358,7 +426,7 @@ fn build_characters_section<B: Backend>(rect: &mut Frame<B>, state: &State, chun
             Option::Some(Modifier::BOLD),
             false
         );
-        rect.render_widget(gauge, player_chunks[2]);
+        rect.render_widget(gauge, char_chunks[2]);
 
         let gauge = create_gauge(
             player.mana as f32, 
@@ -368,7 +436,7 @@ fn build_characters_section<B: Backend>(rect: &mut Frame<B>, state: &State, chun
             Option::Some(Modifier::BOLD),
             false
         );
-        rect.render_widget(gauge, player_chunks[3]);
+        rect.render_widget(gauge, char_chunks[3]);
     }
 }
 

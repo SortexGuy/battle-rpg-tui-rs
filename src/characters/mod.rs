@@ -1,5 +1,7 @@
-use crate::{ui_rendering::ActionOptions, State};
+
+use crate::{ui_rendering::ActionOptions, BattleState};
 use rand::random;
+use std::fmt::{self, Display};
 
 #[derive(Debug, Default, Clone)]
 pub struct Stats {
@@ -7,6 +9,8 @@ pub struct Stats {
     pub defense: u16,
     pub hope: u16,
 }
+
+// dmg = tu_attack * (rand * tu_hope) - enemy_defense * (rand * enemy_hope)
 
 #[derive(Debug, Clone)]
 pub struct Character {
@@ -19,6 +23,11 @@ pub struct Character {
     pub time: f32,
     pub time_mod: f32,
     pub act_available: Vec<ActionOptions>,
+}
+impl Display for Character {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 impl Default for Character {
     fn default() -> Self {
@@ -62,7 +71,7 @@ impl Character {
     }
 }
 
-pub fn update_chars_time(state: &mut State, delta: f32) {
+pub fn update_chars_time(state: &mut BattleState, delta: f32) {
     for party in vec![&mut state.player_party, &mut state.enemy_party].iter_mut() {
         for chara in party.iter_mut() {
             chara.update(delta);
