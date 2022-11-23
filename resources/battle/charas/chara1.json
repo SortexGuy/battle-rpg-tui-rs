@@ -1,0 +1,80 @@
+{
+  "act_available": [
+	[
+	  {
+		"damage": 0,
+		"duration": 0.0,
+		"mana_cost": 0,
+		"name": "Action",
+		"time_cost": 0.0
+	  }
+	],
+	[
+	  {
+		"damage": 0,
+		"duration": 0.0,
+		"mana_cost": 0,
+		"name": "Action",
+		"time_cost": 0.0
+	  }
+	],
+	[
+	  {
+		"damage": 0,
+		"duration": 0.0,
+		"mana_cost": 0,
+		"name": "Action",
+		"time_cost": 0.0
+	  },
+	  {
+		"damage": 0,
+		"duration": 0.0,
+		"mana_cost": 0,
+		"name": "Action",
+		"time_cost": 0.0
+	  }
+	],
+	[
+	  {
+		"damage": 0,
+		"duration": 0.0,
+		"mana_cost": 0,
+		"name": "Action",
+		"time_cost": 0.0
+	  },
+	  {
+		"damage": 0,
+		"duration": 0.0,
+		"mana_cost": 0,
+		"name": "Action",
+		"time_cost": 0.0
+	  }
+	],
+	[
+	  {
+		"damage": 0,
+		"duration": 0.0,
+		"mana_cost": 0,
+		"name": "Action",
+		"time_cost": 0.0
+	  }
+	]
+  ],
+  "cmd_available": [
+	"Attack",
+	"Defend",
+	"Ability"
+  ],
+  "health": 78,
+  "mana": 45,
+  "max_health": 100,
+  "max_mana": 100,
+  "name": "Personaje1",
+  "stats": {
+	"attack": 5,
+	"defense": 4,
+	"hope": 3
+  },
+  "time": 0.0,
+  "time_mod": 1.0914483070373535
+},

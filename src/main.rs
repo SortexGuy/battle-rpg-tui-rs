@@ -1,5 +1,6 @@
 mod characters;
 mod ui_rendering;
+mod file_io;
 
 // Importing
 use characters::*;
@@ -143,6 +144,7 @@ impl<'a> Game<'a> {
                 tittle: title,
                 should_quit: false,
             },
+            // ! From file
             battle_state: BattleState {
                 enemy_party,
                 player_party,
@@ -150,6 +152,7 @@ impl<'a> Game<'a> {
             ui_state: UiState {
                 enemy_party: None,
                 player_party: None,
+                // ! From file
                 from: StatefulList::with_items(vec!["".to_string()], "Quien?"),
                 what: StatefulList::with_items(vec!["".to_string()], "Qué?"),
                 which: StatefulList::with_items(vec!["".to_string()], "Cual?"),
@@ -190,7 +193,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // restore terminal
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
 
     if let Err(err) = res {
@@ -200,29 +203,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn run() -> Result<(), Box<dyn Error>> {
-    // setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+// pub fn run() -> Result<(), Box<dyn Error>> {
+//     // setup terminal
+//     enable_raw_mode()?;
+//     let mut stdout = io::stdout();
+//     execute!(stdout, EnterAlternateScreen)?;
+//     let backend = CrosstermBackend::new(stdout);
+//     let mut terminal = Terminal::new(backend)?;
 
-    // create app and run it
-    let game = Game::new("Asies");
-    let res = run_app(&mut terminal, game);
+//     // create app and run it
+//     let game = Game::new("Asies");
+//     let res = run_app(&mut terminal, game);
 
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
-    terminal.show_cursor()?;
+//     // restore terminal
+//     disable_raw_mode()?;
+//     execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
+//     terminal.show_cursor()?;
 
-    if let Err(err) = res {
-        println!("{:?}", err)
-    }
+//     if let Err(err) = res {
+//         println!("{:?}", err)
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut game: Game) -> Result<(), Box<dyn Error>> {
     //* Event loop
@@ -272,12 +275,13 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut game: Game) -> Result<(),
                         if done {
                             continue;
                         }
-                        if player.cmd_available.contains(&Commands::Magic) {
-                            player.add_action(&Commands::Manif);
-                        } else {
+                        if !player.cmd_available.contains(&Commands::Magic) {
                             player.add_action(&Commands::Magic);
+                            done = true;
+                        } else if !player.cmd_available.contains(&Commands::Manif) {
+                            player.add_action(&Commands::Manif);
+                            done = true;
                         }
-                        done = true;
                     }
                 }
                 KeyCode::Up | KeyCode::Char('w') => {
@@ -289,7 +293,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut game: Game) -> Result<(),
                 KeyCode::Left | KeyCode::Char('a') => {
                     game.ui_state.unselect();
                 }
-                KeyCode::Right | KeyCode::Char('d') | KeyCode::Enter | KeyCode::Char(' ') => {
+                KeyCode::Right | KeyCode::Char('d') |
+                    KeyCode::Enter | KeyCode::Char(' ') => {
                     game.ui_state.select();
                 }
                 _ => {}

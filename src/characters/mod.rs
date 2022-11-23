@@ -28,17 +28,18 @@ impl Display for Commands {
     }
 }
 
+// ! From file
 #[derive(Debug, Clone)]
-pub struct Actions {
+pub struct Action {
     name: String,
     damage: u16,
     duration: f32,
     time_cost: f32,
     mana_cost: u16,
 }
-impl Default for Actions {
+impl Default for Action {
     fn default() -> Self {
-        Actions {
+        Action {
             name: "Action".to_string(),
             damage: 0,
             duration: 0.,
@@ -47,12 +48,13 @@ impl Default for Actions {
         }
     }
 }
-impl Display for Actions {
+impl Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name)
     }
 }
 
+// ! From file
 #[derive(Debug, Clone)]
 pub struct Character {
     pub name: String,
@@ -65,7 +67,7 @@ pub struct Character {
     pub time: f32,
     pub time_mod: f32,
     pub cmd_available: Vec<Commands>,
-    pub act_available: [Vec<Actions>; Commands::Max as usize],
+    pub act_available: [Vec<Action>; Commands::Max as usize],
 }
 impl Display for Character {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -87,15 +89,15 @@ impl Default for Character {
             cmd_available: vec![Commands::Attack, Commands::Defend, Commands::Ability],
             act_available: [
                 // Attack
-                vec![Actions::default()],
+                vec![Action::default()],
                 // Defend
-                vec![Actions::default()],
+                vec![Action::default()],
                 // Magic
-                vec![Actions::default(), Actions::default()],
+                vec![Action::default(), Action::default()],
                 // Ability
-                vec![Actions::default(), Actions::default()],
+                vec![Action::default(), Action::default()],
                 // Manifestations
-                vec![Actions::default()],
+                vec![Action::default()],
             ],
         };
         chara.health = chara.max_health;
