@@ -1,11 +1,11 @@
 mod characters;
-mod ui_rendering;
 mod file_io;
+mod ui_rendering;
 
 // Importing
 use characters::*;
 use crossterm::{
-    event::{self, Event as CEvent, KeyCode},
+    event::{self, Event as CEvent},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -23,6 +23,118 @@ use tui::{
 };
 use ui_rendering::{StatefulList, UiState};
 
+fn get_initial_parties() -> (Vec<Character>, Vec<Character>) {
+    let enemy_party = vec![
+        Character {
+            name: "Enemigo".to_string(),
+            stats: Stats {
+                attack: 5,
+                defense: 5,
+                hope: 2,
+            },
+            health: 23,
+            max_health: 100,
+            mana: 82,
+            max_mana: 100,
+            ..Default::default()
+        },
+        Character {
+            name: "Enemigo2".to_string(),
+            stats: Stats {
+                attack: 5,
+                defense: 5,
+                hope: 2,
+            },
+            health: 23,
+            max_health: 100,
+            mana: 82,
+            max_mana: 100,
+            ..Default::default()
+        },
+        Character {
+            name: "Enemigo3".to_string(),
+            stats: Stats {
+                attack: 5,
+                defense: 5,
+                hope: 2,
+            },
+            health: 23,
+            max_health: 100,
+            mana: 82,
+            max_mana: 100,
+            ..Default::default()
+        },
+        Character {
+            name: "Enemigo4".to_string(),
+            stats: Stats {
+                attack: 5,
+                defense: 5,
+                hope: 2,
+            },
+            health: 23,
+            max_health: 100,
+            mana: 82,
+            max_mana: 100,
+            ..Default::default()
+        },
+    ];
+    let player_party = vec![
+        Character {
+            name: "Personaje1".to_string(),
+            stats: Stats {
+                attack: 5,
+                defense: 4,
+                hope: 3,
+            },
+            health: 78,
+            max_health: 100,
+            mana: 45,
+            max_mana: 100,
+            ..Default::default()
+        },
+        Character {
+            name: "Personaje2".to_string(),
+            stats: Stats {
+                attack: 3,
+                defense: 5,
+                hope: 4,
+            },
+            health: 83,
+            max_health: 100,
+            mana: 56,
+            max_mana: 100,
+            ..Default::default()
+        },
+        Character {
+            name: "Personaje3".to_string(),
+            stats: Stats {
+                attack: 3,
+                defense: 4,
+                hope: 5,
+            },
+            health: 27,
+            max_health: 100,
+            mana: 38,
+            max_mana: 100,
+            ..Default::default()
+        },
+        Character {
+            name: "Personaje4".to_string(),
+            stats: Stats {
+                attack: 3,
+                defense: 4,
+                hope: 5,
+            },
+            health: 27,
+            max_health: 100,
+            mana: 38,
+            max_mana: 100,
+            ..Default::default()
+        },
+    ];
+    return (enemy_party, player_party);
+}
+
 pub struct Game<'a> {
     pub app_state: AppState<'a>,
     pub battle_state: BattleState,
@@ -30,114 +142,7 @@ pub struct Game<'a> {
 }
 impl<'a> Game<'a> {
     pub fn new(title: &'a str) -> Game<'a> {
-        let enemy_party = vec![
-            Character {
-                name: "Enemigo".to_string(),
-                stats: Stats {
-                    attack: 5,
-                    defense: 5,
-                    hope: 2,
-                },
-                health: 23,
-                max_health: 100,
-                mana: 82,
-                max_mana: 100,
-                ..Default::default()
-            },
-            Character {
-                name: "Enemigo2".to_string(),
-                stats: Stats {
-                    attack: 5,
-                    defense: 5,
-                    hope: 2,
-                },
-                health: 23,
-                max_health: 100,
-                mana: 82,
-                max_mana: 100,
-                ..Default::default()
-            },
-            Character {
-                name: "Enemigo3".to_string(),
-                stats: Stats {
-                    attack: 5,
-                    defense: 5,
-                    hope: 2,
-                },
-                health: 23,
-                max_health: 100,
-                mana: 82,
-                max_mana: 100,
-                ..Default::default()
-            },
-            Character {
-                name: "Enemigo4".to_string(),
-                stats: Stats {
-                    attack: 5,
-                    defense: 5,
-                    hope: 2,
-                },
-                health: 23,
-                max_health: 100,
-                mana: 82,
-                max_mana: 100,
-                ..Default::default()
-            },
-        ];
-        let player_party = vec![
-            Character {
-                name: "Personaje1".to_string(),
-                stats: Stats {
-                    attack: 5,
-                    defense: 4,
-                    hope: 3,
-                },
-                health: 78,
-                max_health: 100,
-                mana: 45,
-                max_mana: 100,
-                ..Default::default()
-            },
-            Character {
-                name: "Personaje2".to_string(),
-                stats: Stats {
-                    attack: 3,
-                    defense: 5,
-                    hope: 4,
-                },
-                health: 83,
-                max_health: 100,
-                mana: 56,
-                max_mana: 100,
-                ..Default::default()
-            },
-            Character {
-                name: "Personaje3".to_string(),
-                stats: Stats {
-                    attack: 3,
-                    defense: 4,
-                    hope: 5,
-                },
-                health: 27,
-                max_health: 100,
-                mana: 38,
-                max_mana: 100,
-                ..Default::default()
-            },
-            Character {
-                name: "Personaje4".to_string(),
-                stats: Stats {
-                    attack: 3,
-                    defense: 4,
-                    hope: 5,
-                },
-                health: 27,
-                max_health: 100,
-                mana: 38,
-                max_mana: 100,
-                ..Default::default()
-            },
-        ];
+        let (enemy_party, player_party) = get_initial_parties();
 
         Game {
             app_state: AppState {
@@ -203,30 +208,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// pub fn run() -> Result<(), Box<dyn Error>> {
-//     // setup terminal
-//     enable_raw_mode()?;
-//     let mut stdout = io::stdout();
-//     execute!(stdout, EnterAlternateScreen)?;
-//     let backend = CrosstermBackend::new(stdout);
-//     let mut terminal = Terminal::new(backend)?;
-
-//     // create app and run it
-//     let game = Game::new("Asies");
-//     let res = run_app(&mut terminal, game);
-
-//     // restore terminal
-//     disable_raw_mode()?;
-//     execute!(terminal.backend_mut(), LeaveAlternateScreen,)?;
-//     terminal.show_cursor()?;
-
-//     if let Err(err) = res {
-//         println!("{:?}", err)
-//     }
-
-//     Ok(())
-// }
-
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut game: Game) -> Result<(), Box<dyn Error>> {
     //* Event loop
     let (tx, rx) = mpsc::channel();
@@ -263,42 +244,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut game: Game) -> Result<(),
 
         //* Event handler
         match rx.recv()? {
-            Event::Input(event) => match event.code {
-                //* if Input
-                KeyCode::Char('q') => {
-                    game.app_state.should_quit = true;
-                    continue;
-                }
-                KeyCode::Char('e') => {
-                    let mut done = false;
-                    for player in game.battle_state.player_party.iter_mut() {
-                        if done {
-                            continue;
-                        }
-                        if !player.cmd_available.contains(&Commands::Magic) {
-                            player.add_action(&Commands::Magic);
-                            done = true;
-                        } else if !player.cmd_available.contains(&Commands::Manif) {
-                            player.add_action(&Commands::Manif);
-                            done = true;
-                        }
-                    }
-                }
-                KeyCode::Up | KeyCode::Char('w') => {
-                    game.ui_state.prev();
-                }
-                KeyCode::Down | KeyCode::Char('s') => {
-                    game.ui_state.next();
-                }
-                KeyCode::Left | KeyCode::Char('a') => {
-                    game.ui_state.unselect();
-                }
-                KeyCode::Right | KeyCode::Char('d') |
-                    KeyCode::Enter | KeyCode::Char(' ') => {
-                    game.ui_state.select();
-                }
-                _ => {}
-            },
+            Event::Input(event) => {
+                game.ui_state
+                    .handle_events(&mut game.app_state, &mut game.battle_state, event)
+            }
             Event::Tick => {}
         }
 

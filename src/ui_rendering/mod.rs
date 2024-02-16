@@ -1,7 +1,9 @@
 mod battle_blocks;
 
-use crate::{characters::Character, BattleState};
+use crate::{characters::Character, AppState, BattleState, Commands};
+use battle_blocks::*;
 use core::option::{Option::None, Option::Some};
+use crossterm::event::{KeyCode, KeyEvent};
 use std::fmt::Display;
 use tui::{
     backend::Backend,
@@ -11,7 +13,6 @@ use tui::{
     Frame,
     Terminal,
 };
-use battle_blocks::*;
 
 pub struct UiState {
     pub enemy_party: Option<Vec<Character>>,
@@ -23,6 +24,49 @@ pub struct UiState {
     pub to: StatefulList,
 }
 impl UiState {
+    pub fn handle_events(
+        &mut self,
+        app_state: &mut AppState,
+        battle_state: &mut BattleState,
+        event: KeyEvent,
+    ) {
+        match event.code {
+            //* if Input
+            KeyCode::Char('q') => {
+                app_state.should_quit = true;
+                return;
+            }
+            KeyCode::Char('e') => {
+                let mut done = false;
+                for player in battle_state.player_party.iter_mut() {
+                    if done {
+                        return;
+                    }
+                    if !player.cmd_available.contains(&Commands::Magic) {
+                        player.add_action(&Commands::Magic);
+                        done = true;
+                    } else if !player.cmd_available.contains(&Commands::Manif) {
+                        player.add_action(&Commands::Manif);
+                        done = true;
+                    }
+                }
+            }
+            KeyCode::Up | KeyCode::Char('w') => {
+                self.prev();
+            }
+            KeyCode::Down | KeyCode::Char('s') => {
+                self.next();
+            }
+            KeyCode::Left | KeyCode::Char('a') => {
+                self.unselect();
+            }
+            KeyCode::Right | KeyCode::Char('d') | KeyCode::Enter | KeyCode::Char(' ') => {
+                self.select();
+            }
+            _ => {}
+        }
+    }
+
     pub fn populate(&mut self, b_state: &BattleState) {
         let enemy_party = &b_state.enemy_party;
         let player_party = &b_state.player_party;

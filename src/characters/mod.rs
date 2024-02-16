@@ -102,7 +102,7 @@ impl Default for Character {
         };
         chara.health = chara.max_health;
         chara.mana = chara.max_mana;
-        chara
+        return chara;
     }
 }
 impl Character {
